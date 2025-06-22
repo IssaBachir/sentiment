@@ -47,18 +47,3 @@ jobs:
       env:
         HF_API_KEY: ${{ secrets.HF_API_KEY }}
       run: python scripts/deploy.py
-
-    - name: 📧 Envoi d'email
-      uses: dawidd6/action-send-mail@v3
-      with:
-        server_address: smtp.gmail.com
-        server_port: 587
-        username: ${{ secrets.SMTP_USER }}
-        password: ${{ secrets.SMTP_PASS }}
-        subject: Résultat du pipeline
-        body: |
-          Accuracy du modèle : ${{ env.accuracy }}
-          Déploiement : ${{ steps.check.outputs.deploy }}
-          Lien Hugging Face : https://huggingface.co/IssaBachir/sentiment-model
-        to: issa@gmail.com
-        from: CI/CD Bot <ci@yourdomain.com>
