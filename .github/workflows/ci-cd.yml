@@ -1,0 +1,64 @@
+name: CI/CD Hugging Face Sentiment
+
+on:
+  push:
+    branches: [dev]
+
+jobs:
+  train-eval-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: 🔄 Récupération du code
+      uses: actions/checkout@v3
+
+    - name: 🐍 Installation de Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+
+    - name: 📦 Installation des dépendances
+      run: |
+        pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install streamlit
+
+    - name: 🧠 Entraînement du modèle
+      run: python scripts/train.py
+
+    - name: 📊 Évaluation du modèle
+      id: eval
+      run: |
+        ACC=$(python scripts/evaluate.py | grep -oP "Accuracy: \K[0-9.]+")
+        echo "accuracy=$ACC" >> $GITHUB_ENV
+        echo "accuracy=$ACC"
+
+    - name: ✅ Vérification du score
+      id: check
+      run: |
+        if (( $(echo "${{ env.accuracy }} >= ${{ secrets.THRESHOLD_SCORE }}" | bc -l) )); then
+          echo "deploy=true" >> $GITHUB_OUTPUT
+        else
+          echo "deploy=false" >> $GITHUB_OUTPUT
+        fi
+
+    - name: 🚀 Déploiement sur Hugging Face
+      if: steps.check.outputs.deploy == 'true'
+      env:
+        HF_API_KEY: ${{ secrets.HF_API_KEY }}
+      run: python scripts/deploy.py
+
+    - name: 📧 Envoi d'email
+      uses: dawidd6/action-send-mail@v3
+      with:
+        server_address: smtp.gmail.com
+        server_port: 587
+        username: ${{ secrets.SMTP_USER }}
+        password: ${{ secrets.SMTP_PASS }}
+        subject: Résultat du pipeline
+        body: |
+          Accuracy du modèle : ${{ env.accuracy }}
+          Déploiement : ${{ steps.check.outputs.deploy }}
+          Lien Hugging Face : https://huggingface.co/IssaBachir/sentiment-model
+        to: issa@gmail.com
+        from: CI/CD Bot <ci@yourdomain.com>
