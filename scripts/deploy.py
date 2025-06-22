@@ -1,27 +1,19 @@
-# scripts/deploy.py
-from huggingface_hub import HfApi, Repository
+import shutil
 import os
 
-def main():
-    model_dir = './models/distilbert-sentiment'
-    repo_id = "IssaBachir/sentiment-model"  # Modifie ici avec ton repo HF si besoin
-    token = os.getenv("HF_API_KEY")
+def deploy():
+    repo_url = "https://huggingface.co/IssaBachir/sentiment"
+    repo_local_dir = "./models/hf_repo"
 
-    if token is None:
-        raise ValueError("Le token HF_API_KEY n'est pas défini dans les variables d'environnement.")
+    # Clone ou crée le repo localement
+    repo = Repository(local_dir=repo_local_dir, clone_from=repo_url, use_auth_token=os.environ["HF_API_KEY"])
 
-    api = HfApi()
-    
-    # Créer le repo sur HF si pas déjà créé (ignore l'erreur sinon)
-    try:
-        api.create_repo(token=token, name="sentiment-model", private=False)
-        print("Repo créé sur Hugging Face.")
-    except Exception as e:
-        print(f"Repo déjà existant ou erreur: {e}")
+    # Copier les fichiers du modèle dans repo_local_dir
+    shutil.copy("outputs/pytorch_model.bin", repo_local_dir)
+    shutil.copy("outputs/config.json", repo_local_dir)
+    shutil.copy("outputs/tokenizer_config.json", repo_local_dir)
 
-    # Pousser les fichiers du modèle
-    repo = Repository(local_dir=model_dir, clone_from=repo_id, use_auth_token=token)
-    repo.push_to_hub(commit_message="Déploiement automatique via CI/CD")
-
-if __name__ == "__main__":
-    main()
+    # Ajouter, commit et push
+    repo.git_add(auto_lfs_track=True)
+    repo.git_commit("Déploiement automatique depuis pipeline CI/CD")
+    repo.git_push()
